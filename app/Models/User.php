@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
-
+use App\Models\Allaccesstoken;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
@@ -41,4 +41,12 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+    public function accessTokens($ip_address){
+        return $this->hasMany(Allaccesstoken::class)->where('ip_address',$ip_address)->get();
+    }
+   public function deletetoken($ip_address){
+        $this->accessTokens($ip_address)->each(function ($tokens, $key){
+            $tokens->delete();
+        });
+ }
 }
