@@ -12,8 +12,17 @@ class EnrollmentTable extends Migration
      * @return void
      */
     public function up()
-    {
-        //
+    {   
+        
+        Schema::create('enrollment_table', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email');
+            $table->string('mode_of_learning');
+            $table->string('course_of_interest');
+            $table->string('mode_of_payment');
+            $table->string('payment_status');
+       });
     }
 
     /**
@@ -23,6 +32,6 @@ class EnrollmentTable extends Migration
      */
     public function down()
     {
-        //
+        Schema::dropIfExists('enrollment_table');
     }
 }

@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Authcontroller;
+use App\Http\Controllers\Paymentprocessor;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -19,6 +20,7 @@ use App\Http\Controllers\Authcontroller;
 // });
 Route::post('register_admin',[Authcontroller::class, 'register_admin']);
 Route::post('admin_login',[Authcontroller::class, 'admin_login']);
+Route::post('payments',[Paymentprocessor::class, 'payment_processsor']);
 Route::group(['middleware'=>'auth:api','prefix'=>'admin'],
    function(){
    

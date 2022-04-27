@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class TransactionsTable extends Migration
+class Intrest extends Migration
 {
     /**
      * Run the migrations.
@@ -13,13 +13,15 @@ class TransactionsTable extends Migration
      */
     public function up()
     {
-        Schema::create('transactions_table', function (Blueprint $table) {
+        Schema::create('interest', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('students_id');
+            $table->string('name');
+            $table->string('email');
+            $table->string('mode_of_learning');
+            $table->string('course_of_interest');
+            $table->string('phone_number');
             $table->string('amount_paid');
-            $table->string('mode_of_payment');
-            $table->foreign('students_id')
-                 ->references('id')->on('enrollment_table')->onDelete('cascade');
+            $table->string('payment_status');
        });
     }
 
@@ -30,6 +32,7 @@ class TransactionsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('transactions_table');
+        
+        Schema::dropIfExists('interest');
     }
 }
