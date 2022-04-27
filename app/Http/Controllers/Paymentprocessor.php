@@ -78,11 +78,12 @@ class Paymentprocessor extends Controller
             }else{
              //check payment mode
              $paymentmode=$request->mode_of_payment;
-             if($paymentmode == "Bank transfer"){
+             $get_course= Courses::where('name',$course_of_intrest)->first();
+             $amount= $get_course->course_fee;
+             if($paymentmode == "Card"){
                 $email=$request->email;
                 $course_of_intrest=$request->course_of_interest;
-                $get_course= Courses::where('name',$course_of_intrest)->first();
-                $amount= $get_course->course_fee;
+                
                 
                 //initialize and verify payments
                 $payment=$this->initialize_payments($email,$amount);
@@ -106,7 +107,7 @@ class Paymentprocessor extends Controller
                                 'mode_of_learning'=>$request->mode_of_learning,
                                 'course_of_interest'=>$request->course_of_interest,
                                 'mode_of_payment'=>$request->mode_of_payment,
-                                'payment_status'=>$request->payment_status
+                                'payment_status'=>"complete"
                             ]); 
                             Transactions::create([
                                 'student_id'=>$enrollment->id,
@@ -118,8 +119,37 @@ class Paymentprocessor extends Controller
                     }
                   
                 }else{
-
+                    return response()->json([
+                        "status"=>"failed",
+                        "message"=>"can not verify payments, an error occured"
+                    ]);
                 }
+                //process bank transfer
+             }elseif($paymentmode == "Bank Transfer"){
+                $enrollment=Enrollments::create([
+                    'name'=> $request->name,
+                    'email'=>$request->email,
+                    'mode_of_learning'=>$request->mode_of_learning,
+                    'course_of_interest'=>$request->course_of_interest,
+                    'mode_of_payment'=>$request->mode_of_payment,
+                    'payment_status'=>"pendding"
+                ]); 
+                $admin_info= User::first();
+                return response()->json([
+                    "status"=>"success",
+                    "payment_mode"=> "Bank Transfer",
+                    "course_fee"=>$amount,
+                    "course_name"=>$request->course_of_interest,
+                    "bank_name"=>$admin_info->bank_name,
+                    "bank_account_number"=>$admin_info->bank_account_number,
+                    "bank_account_name"=>$admin_info->bank_account_name,
+                    "payment_link"=>"link"
+                  ]);
+             }else{
+                 return response()->json([
+                    "status"=>"failed",
+                    "message"=>"can not process payment"
+                 ]);
              }
                
               
