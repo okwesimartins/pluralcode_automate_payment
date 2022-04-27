@@ -63,7 +63,7 @@ class Paymentprocessor extends Controller
     public function payment_processsor(Request $request){
         
         $request_type= $request->type;
-        if($request_type= "enrollment"){
+        if($request_type == "enrollment"){
             $validator = Validator::make($request->all(), [
                 'name' => 'required',
                 'email'=>'required',
@@ -76,6 +76,9 @@ class Paymentprocessor extends Controller
             if($validator->fails()){
                 return response()->json(['error' => $validator->errors()->all()]);
             }else{
+             //check payment mode
+             $paymentmode=$request->mode_of_payment;
+             if($paymentmode == "Bank transfer"){
                 $email=$request->email;
                 $course_of_intrest=$request->course_of_interest;
                 $get_course= Courses::where('name',$course_of_intrest)->first();
@@ -85,23 +88,102 @@ class Paymentprocessor extends Controller
                 $payment=$this->initialize_payments($email,$amount);
                 $paystack_response=json_decode($payment);
                 if($paystack_response->status == true){
-                    $reference=$paystack_response->data->reference;
-                    $verify_payment=$this->verify_payments($reference);
-                    $verify_payment_response= json_decode($verify_payment);
-                    if($verify_payment_response->status == true){
-                        Enrollments::create([
-                            'name'=> $request->name,
-                            'email'=>$request->email,
-                            'mode_of_learning'=>$request->mode_of_learning,
-                            'course_of_interest'=>$request->course_of_interest,
-                            'mode_of_payment'=>$request->mode_of_payment,
-                            'payment_status'=>$request->payment_status
-                        ]); 
+                    return response()->json([
+                      "payment_link"=> $paystack_response->data->authorization_url,
+                      "course_fee"=>$amount,
+                      "course_name"=>$request->course_of_interest
+                    ]);
+                    if(isset($paystack_response->data->reference)){
+                        $reference=$paystack_response->data->reference;
+                        $verify_payment=$this->verify_payments($reference);
+                        $verify_payment_response= json_decode($verify_payment);
+                        if($verify_payment_response->status == true){
+    
+       
+                            $enrollment=Enrollments::create([
+                                'name'=> $request->name,
+                                'email'=>$request->email,
+                                'mode_of_learning'=>$request->mode_of_learning,
+                                'course_of_interest'=>$request->course_of_interest,
+                                'mode_of_payment'=>$request->mode_of_payment,
+                                'payment_status'=>$request->payment_status
+                            ]); 
+                            Transactions::create([
+                                'student_id'=>$enrollment->id,
+                                'amount_paid'=>$amount,
+                                'mode_of_payment'=>$request->mode_of_payment
+                            ]);
+                          
+                        }
                     }
+                  
                 }else{
 
                 }
+             }
+               
               
+            }
+        }
+        if($request_type == "intrestform"){
+            $validator = Validator::make($request->all(), [
+                'name' => 'required',
+                'email'=>'required',
+                'mode_of_learning' => 'required',
+                'course_of_interest'=>'required',
+                'payment_status'=>'required',
+                'phone_number'=>'required',
+                'amount_paid'=>'required',
+            ]);
+            if($validator->fails()){
+                return response()->json(['error' => $validator->errors()->all()]);
+            }else{
+
+              //check payment mode
+              
+
+
+                $email=$request->email;
+                $course_of_intrest=$request->course_of_interest;
+                $get_course= Courses::where('name',$course_of_intrest)->first();
+                $amount= $get_course->course_fee;
+                
+                //initialize and verify payments
+                $payment=$this->initialize_payments($email,$amount);
+                $paystack_response=json_decode($payment);
+                if($paystack_response->status == true){
+                    return response()->json([
+                      "payment_link"=> $paystack_response->data->authorization_url,
+                      "course_fee"=>$amount,
+                      "course_name"=>$request->course_of_interest
+                    ]);
+                    if(isset($paystack_response->data->reference)){
+                        $reference=$paystack_response->data->reference;
+                        $verify_payment=$this->verify_payments($reference);
+                        $verify_payment_response= json_decode($verify_payment);
+                        if($verify_payment_response->status == true){
+
+                            $intrestform=Intrestform::create([
+                                'name' => $request->name,
+                                'email'=>$request->name,
+                                'mode_of_learning' => $request->mode_of_learning,
+                                'course_of_interest'=>$request->course_of_interest,
+                                'mode_of_payment' => $request->mode_of_payment,
+                                'payment_status'=>$request->payment_status,
+                                'phone_number'=>$request->phone_number,
+                                'amount_paid'=>$request->amount_paid,
+                            ]); 
+                            Transactions::create([
+                                'student_id'=>$intrestform->id,
+                                'amount_paid'=>$amount,
+                                'mode_of_payment'=>$request->mode_of_payment
+                            ]);
+
+
+                        }
+                    }
+                    
+                }
             }
         }
       
