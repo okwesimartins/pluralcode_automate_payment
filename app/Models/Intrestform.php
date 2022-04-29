@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Intrestform extends Model
 {
     use HasFactory;
-    protected $table='intrest';
+    protected $table='interest';
     public $timestamps= False;
     protected $fillable = [
         'name',
@@ -19,6 +19,8 @@ class Intrestform extends Model
         'payment_status',
         'amount_paid',
         'phone_number',
+        'date',
+        'time',
 
     ];
 }

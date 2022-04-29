@@ -17,6 +17,8 @@ class Enrollments extends Model
         'course_of_interest',
         'mode_of_payment',
         'payment_status',
+        'date',
+        'time',
 
     ];
    
