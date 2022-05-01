@@ -7,11 +7,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class Receiptmail extends Mailable
+class Adminconfirmpayments extends Mailable
 {
     use Queueable, SerializesModels;
-    
-    public $title;
+
+    public $admin_title;
     public $student_info;
     public $transaction_details;
     /**
@@ -19,9 +19,9 @@ class Receiptmail extends Mailable
      *
      * @return void
      */
-    public function __construct($title,$student_info,$transaction_details)
+    public function __construct($admin_title,$student_info,$transaction_details)
     {
-        $this->title=$title;
+        $this->admin_title=$admin_title;
         $this->student_info=$student_info;
         $this->transaction_details=$transaction_details;
     }
@@ -33,6 +33,6 @@ class Receiptmail extends Mailable
      */
     public function build()
     {
-        return $this->subject($this->title)->view('receipt');
+        return $this->subject($this->title)->view('confirmation');
     }
 }

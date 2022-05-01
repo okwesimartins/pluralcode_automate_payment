@@ -10,6 +10,9 @@ use App\Models\Intrestform;
 use App\Models\User;
 use Validator;
 use Carbon\Carbon;
+use App\Mail\Receiptmail;
+use App\Mail\Adminconfirmpayments;
+use Illuminate\Support\Facades\Mail;
 class Paymentprocessor extends Controller
 {   
     //pay with paysatck
@@ -41,10 +44,9 @@ class Paymentprocessor extends Controller
         return $result;
     }
 //verify paystack transactions
-    public function verify_payments(Request $request){
-     $reference=$request->reference;
-     $name=$request->name;
-     $email=
+    public function verify_payments($reference){
+    
+     
      $curl = curl_init();
   curl_setopt_array($curl, array(
     CURLOPT_URL => "https://api.paystack.co/transaction/verify/{$reference}",
@@ -63,45 +65,261 @@ class Paymentprocessor extends Controller
   $response = curl_exec($curl);
   $err = curl_error($curl);
   curl_close($curl);                   
-  $verify_payment_response= json_decode($response);
-     if($verify_payment_response->status == true){
-    
-                            
-                            $enrollment=Enrollments::create([
-                                'name'=> $name,
-                                'email'=>$request->email,
-                                'mode_of_learning'=>$request->mode_of_learning,
-                                'course_of_interest'=>$request->course_of_interest,
-                                'mode_of_payment'=>$request->mode_of_payment,
-                                'payment_status'=>"complete",
-                                'date'=>$date,
-                                'time'=>$time
-                            ]); 
-                            
-                            Transactions::create([
-                                'students_id'=>$enrollment->id,
-                                'amount_paid'=>$amount_inputed,
-                                'mode_of_payment'=>$request->mode_of_payment,
-                                'date'=>$date,
-                                'time'=>$time
-                            ]);
-                            return response()->json([
-                                "payment_link"=> $paystack_response->data->authorization_url,
-                                "course_fee"=>$course_fee,
-                                "amount_to_pay"=>$amount_inputed,
-                                "course_name"=>$request->course_of_interest
-                              ]);
-
-                              return response()->json(["status"=>"success"]);
-                        }
+  return $response;
   
     }
-    
-    //process payments
-    public function payment_processsor(Request $request){
+    public function verify_pluralcodepayment(Request $request){
         $carbondate=Carbon::now();
         $time=$carbondate->now('UTC')->setTimezone('WAT')->format('g:i:s a');
         $date=$carbondate->toDateString();
+        $reference=$request->reference;
+        $first_name=$request->first_name;
+        $last_name=$request->last_name;
+        $name= $first_name.' '.$last_name;
+        $phone_number=$request->phone_number;
+        $type=$request->type;
+        $amount=$request->amount;
+        $course=$request->course;
+        $email=$request->email;
+        $paymentmode=$request->paymentmode;
+        $learningmode=$request->learning_mode;
+        if($reference ){
+            if($type=="enrollment"){
+                $response= $this->verify_payments($reference);
+                $verify_payment_response= json_decode($response);
+                if($verify_payment_response->status == true){
+               
+                                       $enrollment=Enrollments::create([
+                                           'name'=> $name,
+                                           'email'=>$email,
+                                           'mode_of_learning'=>$learningmode,
+                                           'course_of_interest'=>$course,
+                                           'mode_of_payment'=>$paymentmode,
+                                           'payment_status'=>"complete",
+                                           'date'=>$date,
+                                           'time'=>$time
+                                       ]); 
+                                       
+                                       Transactions::create([
+                                           'students_id'=>$enrollment->id,
+                                           'amount_paid'=>$amount,
+                                           'mode_of_payment'=>$paymentmode,
+                                           'date'=>$date,
+                                           'time'=>$time
+                                       ]);
+                                       $admin_email=["email"=>$admin->email];
+                                       $title= $course.' '.'Receipt';
+                                       $admin_title=$name.' '.'payment';
+                                       $student_info=[
+                                         "name"=>$name,
+                                         "email"=>$email
+                                       ];
+                       
+                                       $transaction_details=[
+                                       "type"=>"enrollment",
+                                       "mode_of_payment"=>"card",
+                                       "course_name"=> $course,
+                                       "Amount_paid"=> $amount
+                                       ];
+                              
+                                   
+                                   
+                                  $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+                                  $send_adminemail= Mail::to( $student_info['email'])->send(new Receiptmail($title,$student_info,$transaction_details));
+                                  if(empty($sendmail)){
+                                   return response()->json([
+                                       "status"=>"success"
+                                      ]);
+                                  }
+           
+                                        
+                        }
+            }if($type=="interestform"){
+                $response= $this->verify_payments($reference);
+                $verify_payment_response= json_decode($response);
+                if($verify_payment_response->status == true){
+                    $admin=User::first();
+                                       $enrollment=Intrestform::create([
+                                           'name'=> $name,
+                                           'email'=>$email,
+                                           'mode_of_learning'=>$learningmode,
+                                           'course_of_interest'=>$course,
+                                           'mode_of_payment'=>$paymentmode,
+                                           'payment_status'=>"complete",
+                                           'phone_number'=>$phone_number,
+                                           'amount_paid'=>$amount,
+                                           'date'=>$date,
+                                           'time'=>$time
+                                       ]); 
+                                       
+                                       $admin_email=["email"=>$admin->email];
+                                       $title= $course.' '.'Receipt';
+                                       $admin_title=$name.' '.'payment';
+                                       $student_info=[
+                                         "name"=>$name,
+                                         "email"=>$email
+                                       ];
+                       
+                                       $transaction_details=[
+                                       "type"=>"interestform",
+                                       "mode_of_payment"=>"card",
+                                       "course_name"=> $course,
+                                       "Amount_paid"=> $amount
+                                       ];
+                              
+                                   
+                                   
+                                  $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+                                  $send_adminemail= Mail::to( $student_info['email'])->send(new Receiptmail($title,$student_info,$transaction_details));
+                                  if(empty($sendmail)){
+                                   return response()->json([
+                                       "status"=>"success"
+                                      ]);
+                                  }
+                                      
+           
+                                        
+                    }
+            }if($type=="payment_form"){
+                $response= $this->verify_payments($reference);
+                $verify_payment_response= json_decode($response);
+                if($verify_payment_response->status == true){
+                $enrollment=Enrollments::where('email',$email)->first();
+                $name=$enrollment->name;
+                $admin=User::first();
+                
+
+                Transactions::create([
+                    'students_id'=>$enrollment->id,
+                    'amount_paid'=>$amount,
+                    'mode_of_payment'=>$paymentmode,
+                    'date'=>$date,
+                    'time'=>$time
+                ]);
+                $admin_email=["email"=>$admin->email];
+                $title= $course.' '.'Receipt';
+                $admin_title=$name.' '.'payment';
+                $student_info=[
+                  "name"=>$name,
+                  "email"=>$email
+                ];
+
+                $transaction_details=[
+                "type"=>"payment_form",
+                "mode_of_payment"=>"card",
+                "course_name"=> $course,
+                "Amount_paid"=> $amount
+                ];
+       
+            
+            
+           $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+           $send_adminemail= Mail::to( $student_info['email'])->send(new Receiptmail($title,$student_info,$transaction_details));
+           if(empty($sendmail)){
+            return response()->json([
+                "status"=>"success"
+               ]);
+           }
+        }
+                
+            }
+         
+        }else{
+            if($type=="enrollment"){
+                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course}&amount={$amount}&type=enrollment&paymentmode=Transfer&learning_mode={$learningmode}";
+                //code for sending email to admin to verify
+                $admin=User::first();
+                $admin_email=["email"=>$admin->email];
+                
+                $admin_title=$name.' '.'payment';
+                $student_info=[
+                  "name"=>$name,
+                  "email"=>$email
+                ];
+
+                $transaction_details=[
+                "type"=>"enrollment",
+                "mode_of_payment"=>"transfer",
+                "course_name"=> $course,
+                "Amount_paid"=> $amount,
+                "link"=>$link
+                ];
+       
+            
+            
+           $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+           
+           if(empty($sendmail)){
+            return response()->json([
+                "status"=>"success"
+               ]);
+           }
+            }if($type=="interestform"){
+                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course}&amount={$amount}&phone_number={$phone_number}&type=interestform&paymentmode=Transfer&learning_mode={$learningmode}";
+                $admin=User::first();
+                $admin_email=["email"=>$admin->email];
+                
+                $admin_title=$name.' '.'payment';
+                $student_info=[
+                  "name"=>$name,
+                  "email"=>$email
+                ];
+
+                $transaction_details=[
+                "type"=>"interestform",
+                "mode_of_payment"=>"transfer",
+                "course_name"=> $course,
+                "Amount_paid"=> $amount,
+                "link"=>$link
+                ];
+       
+            
+            
+           $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+           
+           if(empty($sendmail)){
+            return response()->json([
+                "status"=>"success"
+               ]);
+           }
+            }
+            if($type=="payment_form"){
+                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&amount={$amount}&type=payment_form&paymentmode=Transfer";
+                $admin=User::first();
+                $admin_email=["email"=>$admin->email];
+                
+                $admin_title=$name.' '.'payment';
+                $student_info=[
+                  "name"=>$name,
+                  "email"=>$email
+                ];
+
+                $transaction_details=[
+                "type"=>"payment_form",
+                "mode_of_payment"=>"transfer",
+                "course_name"=> $course,
+                "Amount_paid"=> $amount,
+                "link"=>$link
+                ];
+       
+            
+            
+           $sendmail= Mail::to( $admin_email['email'])->send(new Adminconfirmpayments($admin_title,$student_info,$transaction_details));
+           
+           if(empty($sendmail)){
+            return response()->json([
+                "status"=>"success"
+               ]);
+           }
+            }
+           
+        }
+
+      
+    }
+    //process payments
+    public function payment_processsor(Request $request){
+        
         $request_type= $request->type;
         if($request_type == "enrollment"){
             $validator = Validator::make($request->all(), [
@@ -129,13 +347,13 @@ class Paymentprocessor extends Controller
              $course_fee=$get_course->course_fee;
              $amount_inputed=$request->inputed_amount_to_pay;
              
-             
+             $learningmode=$request->mode_of_learning;
              if($paymentmode == "Card"){
                 $cal_amount=(int)$course_fee * 100;
                 $amount= $cal_amount;
                   if(isset($amount_inputed)){
                       $amount_to_pay=(int)$amount_inputed * 100;
-                      $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$amount_inputed}";
+                      $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$amount_inputed}&type=enrollment&paymentmode=Card&learning_mode={$learningmode}";
                      //initialize and verify payments
                 $payment=$this->initialize_payments($email,$amount_to_pay,$link);
                 $paystack_response=json_decode($payment);
@@ -163,7 +381,7 @@ class Paymentprocessor extends Controller
                   }else{
                       
                       //initialize and verify payments
-                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$amount}";
+                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$course_fee}&type=enrollment&paymentmode=Card&learning_mode={$learningmode}";
                 $payment=$this->initialize_payments($email,$amount,$link);
                 $paystack_response=json_decode($payment);
                 if(isset($paystack_response->status) == true){
@@ -201,7 +419,7 @@ class Paymentprocessor extends Controller
                         "bank_name"=>$admin_info->bank_name,
                         "bank_account_number"=>$admin_info->bank_account_number,
                         "bank_account_name"=>$admin_info->bank_account_name,
-                        "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$amount_inputed}"
+                        "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$amount_inputed}&type=enrollment&paymentmode=Transfer&learning_mode={$learningmode}"
                       ]);
                     
                 }else{ 
@@ -215,7 +433,7 @@ class Paymentprocessor extends Controller
                         "bank_name"=>$admin_info->bank_name,
                         "bank_account_number"=>$admin_info->bank_account_number,
                         "bank_account_name"=>$admin_info->bank_account_name,
-                        "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$course_fee}"
+                        "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$course_fee}&type=enrollment&paymentmode=Transfer&learning_mode={$learningmode}"
                       ]);
                 }
                 
@@ -248,16 +466,17 @@ class Paymentprocessor extends Controller
               $last_name=$request->last_name;
               $email=$request->email;
               $paymentmode=$request->mode_of_payment;
+              $phone_number=$request->phone_number;
               $intrest_form_fee= 10000;
               $cal_amount= $intrest_form_fee * 100;
               $amount= $cal_amount;
               $course_of_intrest=$request->course_of_interest;
               $get_course= Courses::where('name',$course_of_intrest)->first();
               $course_fee=$get_course->course_fee;
-             
+              $learningmode=$request->mode_of_learning;
              
              if($paymentmode == "Card"){
-                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$intrest_form_fee}&type=interestform";
+                $link="https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&phone_number={$phone_number}&amount={$intrest_form_fee}&type=interestform&paymentmode=Card&learning_mode={$learningmode}";
                      //initialize and verify payments
                 $payment=$this->initialize_payments($email,$amount,$link);
                 $paystack_response=json_decode($payment);
@@ -292,7 +511,7 @@ class Paymentprocessor extends Controller
                     "bank_name"=>$admin_info->bank_name,
                     "bank_account_number"=>$admin_info->bank_account_number,
                     "bank_account_name"=>$admin_info->bank_account_name,
-                    "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&amount={$intrest_form_fee}&type=interestform"
+                    "payment_link"=>"https://pluralcode.academy/payment_verification?first_name={$first_name}&last_name={$last_name}&email={$email}&course={$course_of_intrest}&phone_number={$phone_number}&amount={$intrest_form_fee}&type=interestform&paymentmode=Card&learning_mode={$learningmode}"
                   ]);
              }else{
 
@@ -340,7 +559,7 @@ class Paymentprocessor extends Controller
                 $course_fee=$get_course->course_fee;
                if($paymentmode == "Card"){
                    if(isset($amount_inputed)){
-                       $link="https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$amount_inputed}&type=payment_form";
+                       $link="https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$amount_inputed}&course={$course}&type=payment_form&paymentmode=Card";
                        $payment=$this->initialize_payments($email,$amount,$link);
                        $paystack_response=json_decode($payment);
                        if($paystack_response->status == true){
@@ -359,7 +578,7 @@ class Paymentprocessor extends Controller
                        }
                    }else{
                     $course_amount= (int)$course_fee * 100;
-                    $link="https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$course_fee}&type=payment_form";
+                    $link="https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$course_fee}&course={$course}&type=payment_form&paymentmode=Card";
                     $payment=$this->initialize_payments($email,$course_amount,$link);
                     $paystack_response=json_decode($payment);
                     if($paystack_response->status == true){
@@ -390,7 +609,7 @@ class Paymentprocessor extends Controller
                         "bank_name"=>$admin_info->bank_name,
                         "bank_account_number"=>$admin_info->bank_account_number,
                         "bank_account_name"=>$admin_info->bank_account_name,
-                        "payment_link"=>"https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$amount_inputed}&type=payment_form"
+                        "payment_link"=>"https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$amount_inputed}&course={$course}&type=payment_form&paymentmode=Transfer"
                       ]);
                   }else{
                     return response()->json([
@@ -401,7 +620,7 @@ class Paymentprocessor extends Controller
                         "bank_name"=>$admin_info->bank_name,
                         "bank_account_number"=>$admin_info->bank_account_number,
                         "bank_account_name"=>$admin_info->bank_account_name,
-                        "payment_link"=>"https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$course_fee}&type=payment_form"
+                        "payment_link"=>"https://pluralcode.academy/payment_verification?email={$email}&course={$course}&amount={$course_fee}&course={$course}&type=payment_form&paymentmode=Transfer"
                       ]);
                   }
                   
